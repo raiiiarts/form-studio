@@ -1,22 +1,41 @@
 
-// FORM STUDIO — INTERACTIONS
+/* =================================
+   FORM STUDIO
+   Main Website Script
+================================= */
 
-// 1. Animated cursor glow
-const glow = document.querySelector(".cursor-glow");
+// CONFIGURATION
+const CONFIG = {
+  formEndpoint: "https://formspree.io/f/xnppyjdg",
+  animationSpeed: 100
+};
 
-window.addEventListener("pointermove", (event) => {
-  glow.style.left = `${event.clientX}px`;
-  glow.style.top = `${event.clientY}px`;
-});
 
-// 2. Scroll reveal animations
+/* =================================
+   1. CURSOR GLOW
+================================= */
+
+const cursorGlow = document.querySelector(".cursor-glow");
+
+if (cursorGlow) {
+  window.addEventListener("pointermove", (event) => {
+    cursorGlow.style.left = `${event.clientX}px`;
+    cursorGlow.style.top = `${event.clientY}px`;
+  });
+}
+
+
+/* =================================
+   2. SCROLL REVEAL ANIMATIONS
+================================= */
+
 const revealElements = document.querySelectorAll(".reveal");
 
-const observer = new IntersectionObserver((entries) => {
+const revealObserver = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
     if (entry.isIntersecting) {
       entry.target.classList.add("visible");
-      observer.unobserve(entry.target);
+      revealObserver.unobserve(entry.target);
     }
   });
 }, {
@@ -24,29 +43,45 @@ const observer = new IntersectionObserver((entries) => {
 });
 
 revealElements.forEach((element, index) => {
-  element.style.transitionDelay = `${(index % 3) * 100}ms`;
-  observer.observe(element);
+  element.style.transitionDelay =
+    `${(index % 3) * CONFIG.animationSpeed}ms`;
+
+  revealObserver.observe(element);
 });
 
-// 3. Mobile navigation
+
+/* =================================
+   3. MOBILE NAVIGATION
+================================= */
+
 const menuToggle = document.getElementById("menuToggle");
 const navLinks = document.getElementById("navLinks");
 
-menuToggle.addEventListener("click", () => {
-  navLinks.classList.toggle("open");
-});
+if (menuToggle && navLinks) {
+  menuToggle.addEventListener("click", () => {
+    const isOpen = navLinks.classList.toggle("open");
 
-navLinks.querySelectorAll("a").forEach((link) => {
-  link.addEventListener("click", () => {
-    navLinks.classList.remove("open");
+    menuToggle.setAttribute("aria-expanded", String(isOpen));
   });
-});
 
-// 4. Interactive service card tilt
-const cards = document.querySelectorAll(".service-card");
+  navLinks.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      navLinks.classList.remove("open");
+      menuToggle.setAttribute("aria-expanded", "false");
+    });
+  });
+}
+
+
+/* =================================
+   4. SERVICE CARD ANIMATIONS
+================================= */
+
+const serviceCards = document.querySelectorAll(".service-card");
 
 if (window.matchMedia("(pointer: fine)").matches) {
-  cards.forEach((card) => {
+  serviceCards.forEach((card) => {
+
     card.addEventListener("pointermove", (event) => {
       const rect = card.getBoundingClientRect();
 
@@ -63,47 +98,167 @@ if (window.matchMedia("(pointer: fine)").matches) {
     card.addEventListener("pointerleave", () => {
       card.style.transform = "";
     });
+
   });
 }
 
-// 5. Order request form
+
+/* =================================
+   5. PORTFOLIO HOVER EFFECTS
+================================= */
+
+const portfolioCards = document.querySelectorAll(".portfolio-card");
+
+portfolioCards.forEach((card) => {
+  card.addEventListener("mouseenter", () => {
+    card.classList.add("active");
+  });
+
+  card.addEventListener("mouseleave", () => {
+    card.classList.remove("active");
+  });
+});
+
+
+/* =================================
+   6. FORM VALIDATION
+================================= */
+
 const orderForm = document.getElementById("orderForm");
 const formMessage = document.getElementById("formMessage");
+const submitButton = orderForm?.querySelector('button[type="submit"]');
+const submitText = document.getElementById("submitText");
 
-orderForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
+function showMessage(message, type = "normal") {
+  if (!formMessage) return;
 
-  const name = document.getElementById("customerName").value.trim();
-  const contact = document.getElementById("customerContact").value.trim();
-  const service = document.getElementById("serviceType").value;
-  const description = document.getElementById("projectDescription").value.trim();
-  const budget = document.getElementById("budget").value;
+  formMessage.textContent = message;
 
-  if (!name || !contact || !service || !description) {
-    formMessage.textContent = "Please complete all required fields.";
-    return;
-  }
+  formMessage.style.color =
+    type === "success" ? "#a5e6b1" :
+    type === "error" ? "#ff9999" : "#aaaaaa";
+}
 
-  const request = `
-FORM STUDIO — NEW PROJECT REQUEST
 
-Customer: ${name}
-Contact: ${contact}
-Service: ${service}
-Budget: ${budget}
+/* =================================
+   7. FORM SUBMISSION
+================================= */
 
-PROJECT DESCRIPTION:
-${description}
-  `.trim();
+if (orderForm) {
 
-  try {
-    await navigator.clipboard.writeText(request);
+  orderForm.addEventListener("submit", async (event) => {
 
-    formMessage.textContent =
-      "Your request has been copied! Send it to our studio through Discord. This demo form does not submit orders online yet.";
+    event.preventDefault();
 
-  } catch (error) {
-    formMessage.textContent =
-      "Your details are filled in, but copying failed. Please contact us through Discord to submit your request.";
-  }
+    if (!orderForm.reportValidity()) {
+      return;
+    }
+
+    if (CONFIG.formEndpoint.includes("YOUR_FORM_ID")) {
+      showMessage(
+        "Our order system is being configured. Please try again later.",
+        "error"
+      );
+      return;
+    }
+
+    const originalText = submitText?.textContent ||
+      "Submit project request ↗";
+
+    submitButton.disabled = true;
+
+    if (submitText) {
+      submitText.textContent = "Sending request...";
+    }
+
+    showMessage("Submitting your project request...");
+
+    try {
+
+      const response = await fetch(CONFIG.formEndpoint, {
+        method: "POST",
+        body: new FormData(orderForm),
+        headers: {
+          Accept: "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("The server rejected the request.");
+      }
+
+      orderForm.reset();
+
+      showMessage(
+        "Your request has been sent! Thank you for choosing FORM Studio.",
+        "success"
+      );
+
+    } catch (error) {
+
+      console.error("FORM Studio submission error:", error);
+
+      showMessage(
+        "We couldn't send your request. Please try again later.",
+        "error"
+      );
+
+    } finally {
+
+      submitButton.disabled = false;
+
+      if (submitText) {
+        submitText.textContent = originalText;
+      }
+
+    }
+
+  });
+
+}
+
+
+/* =================================
+   8. SMOOTH SECTION NAVIGATION
+================================= */
+
+document.querySelectorAll('a[href^="#"]').forEach((link) => {
+
+  link.addEventListener("click", (event) => {
+
+    const target = document.querySelector(link.getAttribute("href"));
+
+    if (!target) return;
+
+    event.preventDefault();
+
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
+  });
+
 });
+
+
+/* =================================
+   9. COPYRIGHT YEAR
+================================= */
+
+const copyright = document.querySelector(".footer");
+
+if (copyright) {
+  const yearText = copyright.querySelector(".copyright-year");
+
+  if (yearText) {
+    yearText.textContent = new Date().getFullYear();
+  }
+}
+
+
+/* =================================
+   FORM STUDIO INITIALIZED
+================================= */
+
+console.log("FORM Studio website initialized.");
